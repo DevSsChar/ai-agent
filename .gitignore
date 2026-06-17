@@ -4,3 +4,4 @@
 venv
 .idea
 .jbeval
+__pycache__
