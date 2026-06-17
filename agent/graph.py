@@ -1,8 +1,6 @@
 import os
 
 from dotenv import load_dotenv
-from langgraph.prebuilt import create_react_agent
-from pydantic import BaseModel, Field
 
 load_dotenv()
 
@@ -11,13 +9,14 @@ os.environ.setdefault("LANGSMITH_TRACING", "true")
 os.environ.setdefault("LANGSMITH_PROJECT", "ai-agent")
 
 from langchain_groq import ChatGroq # type: ignore
-from prompts import *
-from states import *
-from tools import *
+from agent.prompts import *
+from agent.states import *
+from agent.tools import *
 from langgraph.constants import END # type: ignore
 from langgraph.graph import StateGraph # type: ignore
 
 llm=ChatGroq(model="openai/gpt-oss-120b")
+init_project_root()
 
 # planner agent
 def planner_agent(state: dict) -> dict:
@@ -42,22 +41,32 @@ def architect_agent(state: dict) -> dict:
     return {"task_plan":resp}
 
 def coder_agent(state: dict) -> dict:
-    steps = state["task_plan"].implementation_steps
-    current_step_idx = 0
+    coder_state=state.get("coder_state")
+    if coder_state is None:
+        coder_state=CoderState(task_plan=state["task_plan"], current_step_idx=0, current_file_content=None)
+    steps = coder_state.task_plan.implementation_steps
+    if coder_state.current_step_idx >= len(steps):
+        return {"coder_state": coder_state, "status": "DONE"}
+    current_step_idx = coder_state.current_step_idx
     current_task = steps[current_step_idx]
-    existing_content = read_file.run(current_task.filepath)
-    user_prompt = (
-        f"Task: {current_task.task_description}\n"
-        f"File: {current_task.filepath}\n"
-        f"Existing content:\n{existing_content}\n"
-        "Use write_file(path, content) to save your changes."
-    )
+    file_path = normalize_project_path(current_task.filepath)
+    existing_content = read_file.run(file_path)
     system_prompt = coder_system_prompt()
-    coder_tools=[read_file, write_file, get_current_directory, list_files, run_cmd]
-    react_agent=create_react_agent(llm, coder_tools)
-    react_agent.invoke({"messages": [{"role": "system", "content": system_prompt},
-                                     {"role": "user", "content": user_prompt}]})
-    return {}
+    user_prompt = coder_user_prompt(
+        current_task.task_description,
+        file_path,
+        existing_content,
+    )
+    resp = llm.with_structured_output(FileContent, method="json_mode").invoke(
+        f"{system_prompt}\n\n{user_prompt}",
+        config={"run_name": "coder_llm", "tags": ["coder", "groq"]},
+    )
+    if resp is None or not resp.content:
+        raise ValueError(f"Coder did not return valid content for {file_path}")
+    write_file.invoke({"path": file_path, "content": resp.content})
+    coder_state.current_file_content = resp.content
+    coder_state.current_step_idx += 1
+    return {"coder_state": coder_state, "status": "IN_PROGRESS"}
 
 graph=StateGraph(dict)
 graph.add_node("planner",planner_agent)
@@ -65,6 +74,11 @@ graph.add_node("architect", architect_agent)
 graph.add_node("coder",coder_agent)
 graph.add_edge("planner","architect")
 graph.add_edge("architect","coder")
+graph.add_conditional_edges(
+    "coder",
+    lambda s: "END" if s.get("status") == "DONE" else "coder",
+    {"END": END, "coder": "coder"}
+)
 graph.set_entry_point("planner")
 agent=graph.compile()
 

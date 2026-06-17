@@ -1,4 +1,6 @@
-from pydantic import BaseModel, Field, ConfigDict, Optional
+from pydantic import BaseModel, Field, ConfigDict
+from typing import Optional
+
 
 class File(BaseModel):
     path: str=Field(description="The path to be created or modified")
@@ -27,6 +29,9 @@ class TaskPlan(BaseModel):
     implementation_steps: list[ImplementationTask] = Field(description="A list of steps to be taken to implement the task")
     # to allow additional elements in class, even though not defined here
     model_config = ConfigDict(extra="allow")
+
+class FileContent(BaseModel):
+    content: str = Field(description="The complete file content to write")
 
 class CoderState(BaseModel):
     task_plan: TaskPlan = Field(description="The plan for the task to be implemented")

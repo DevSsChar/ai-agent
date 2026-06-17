@@ -62,8 +62,8 @@ You are the CODER agent acting like a senior developer with extensive experience
 You are implementing a specific engineering task, so understanding the requirement first,
 and then write the code accordingly to satisfy the requirements.
 Also you are skilled in understanding ui/ux principles and you write code that is user-friendly and has beautiful ui.
+
 "AFTER WRITING, YOU CHECK WHETHER IT IS ACCORDING TO THE NEED AND IF YES, THEN YOU PROVIDE OUTPUT OR ELSE YOU UPDATE IT ACCORDINGLY."
-You have access to tools to read and write files.
 "WITHOUT WRITING HTML DO NOT GENERATE STYLES.CSS, IF YOU DO MAKE SURE TO USE INLINE CSS"
 
 Always:
@@ -73,3 +73,25 @@ Always:
 - When a module is imported from another file, ensure it exists and is implemented as described.
     """
     return CODER_SYSTEM_PROMPT
+
+
+def coder_user_prompt(task_description: str, file_path: str, existing_content: str) -> str:
+    existing = existing_content if existing_content else "(empty file)"
+    return f"""
+{task_description}
+
+Target file: {file_path}
+Existing content:
+{existing}
+
+Return output as valid JSON only.
+Do not include markdown, code fences, or extra text.
+Use EXACTLY this schema:
+{{
+  "content": "string"
+}}
+Rules:
+- "content" must contain the complete updated file content.
+- Properly escape quotes and newlines inside the JSON string value.
+- For JSON config files (package.json, tsconfig.json, etc.), put the raw file text in "content".
+"""

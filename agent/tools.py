@@ -4,18 +4,48 @@ from typing import Tuple
 
 from langchain_core.tools import tool
 
-# to add in current directory
+# Generated code lives under <cwd>/generated_project
 PROJECT_ROOT = pathlib.Path.cwd() / "generated_project"
 
-# to check if agent tries to update outside the project root and if yes, then stop it
-def safe_path_for_project(path: str) -> pathlib.Path:
-    p = (PROJECT_ROOT / path).resolve()
-    if PROJECT_ROOT.resolve() not in p.parents and PROJECT_ROOT.resolve() != p.parent and PROJECT_ROOT.resolve() != p:
+
+def normalize_project_path(path: str) -> str:
+    """Normalize model-provided paths to a safe relative path under PROJECT_ROOT."""
+    cleaned = (path or "").strip().replace("\\", "/")
+    if not cleaned:
+        raise ValueError("Path cannot be empty")
+
+    # Drop leading slashes so "/src/index.html" does not escape to drive root on Windows.
+    cleaned = cleaned.lstrip("/")
+
+    # If the model repeats the project folder, strip it.
+    project_prefix = f"{PROJECT_ROOT.name}/"
+    if cleaned.startswith(project_prefix):
+        cleaned = cleaned[len(project_prefix) :]
+
+    if ".." in pathlib.PurePosixPath(cleaned).parts:
         raise ValueError("Attempt to write outside project root")
-    return p
+
+    return cleaned
 
 
-# just a common py function to write to a file
+def safe_path_for_project(path: str) -> pathlib.Path:
+    """Resolve a path and ensure it stays inside PROJECT_ROOT."""
+    root = PROJECT_ROOT.resolve()
+    candidate = pathlib.Path(path.strip())
+
+    if candidate.is_absolute():
+        resolved = candidate.resolve()
+    else:
+        resolved = (root / normalize_project_path(path)).resolve()
+
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("Attempt to write outside project root") from exc
+
+    return resolved
+
+
 @tool
 def write_file(path: str, content: str) -> str:
     """Writes content to a file at the specified path within the project root."""
@@ -45,11 +75,13 @@ def get_current_directory() -> str:
 @tool
 def list_files(directory: str = ".") -> str:
     """Lists all files in the specified directory within the project root."""
-    p = safe_path_for_project(directory)
+    normalized_directory = (directory or "").strip() or "."
+    p = safe_path_for_project(normalized_directory)
     if not p.is_dir():
         return f"ERROR: {p} is not a directory"
     files = [str(f.relative_to(PROJECT_ROOT)) for f in p.glob("**/*") if f.is_file()]
     return "\n".join(files) if files else "No files found."
+
 
 @tool
 def run_cmd(cmd: str, cwd: str = None, timeout: int = 30) -> Tuple[int, str, str]:
@@ -59,6 +91,6 @@ def run_cmd(cmd: str, cwd: str = None, timeout: int = 30) -> Tuple[int, str, str
     return res.returncode, res.stdout, res.stderr
 
 
-def init_project_root():
+def init_project_root() -> str:
     PROJECT_ROOT.mkdir(parents=True, exist_ok=True)
-    return str(PROJECT_ROOT)
+    return str(PROJECT_ROOT.resolve())
