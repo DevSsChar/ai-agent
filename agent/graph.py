@@ -1,6 +1,7 @@
 import os
 
 from dotenv import load_dotenv
+from langgraph.prebuilt import create_react_agent
 from pydantic import BaseModel, Field
 
 load_dotenv()
@@ -9,11 +10,12 @@ load_dotenv()
 os.environ.setdefault("LANGSMITH_TRACING", "true")
 os.environ.setdefault("LANGSMITH_PROJECT", "ai-agent")
 
-from langchain_groq import ChatGroq
-from agent.prompts import *
-from agent.states import *
-from langgraph.constants import END
-from langgraph.graph import StateGraph
+from langchain_groq import ChatGroq # type: ignore
+from prompts import *
+from states import *
+from tools import *
+from langgraph.constants import END # type: ignore
+from langgraph.graph import StateGraph # type: ignore
 
 llm=ChatGroq(model="openai/gpt-oss-120b")
 
@@ -43,15 +45,19 @@ def coder_agent(state: dict) -> dict:
     steps = state["task_plan"].implementation_steps
     current_step_idx = 0
     current_task = steps[current_step_idx]
+    existing_content = read_file.run(current_task.filepath)
     user_prompt = (
-        f"Task:{current_task.task_description}\n"
+        f"Task: {current_task.task_description}\n"
+        f"File: {current_task.filepath}\n"
+        f"Existing content:\n{existing_content}\n"
+        "Use write_file(path, content) to save your changes."
     )
     system_prompt = coder_system_prompt()
-    resp = llm.invoke(
-        system_prompt + user_prompt,
-        config={"run_name": "coder_llm", "tags": ["coder", "groq"]},
-    )
-    return {"code": str(getattr(resp, "content", ""))}
+    coder_tools=[read_file, write_file, get_current_directory, list_files, run_cmd]
+    react_agent=create_react_agent(llm, coder_tools)
+    react_agent.invoke({"messages": [{"role": "system", "content": system_prompt},
+                                     {"role": "user", "content": user_prompt}]})
+    return {}
 
 graph=StateGraph(dict)
 graph.add_node("planner",planner_agent)

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculator</title>
+    <link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+    <div class="calculator" style="max-width: 300px; margin: 40px auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px; box-shadow: 2px 2px 12px rgba(0,0,0,0.1);">
+        <input type="text" id="display" readonly style="width: 100%; height: 40px; font-size: 1.5rem; text-align: right; margin-bottom: 10px;" />
+        <div class="buttons" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;">
+            <!-- Digits -->
+            <button data-action="digit-7" style="padding: 15px; font-size: 1rem;">7</button>
+            <button data-action="digit-8" style="padding: 15px; font-size: 1rem;">8</button>
+            <button data-action="digit-9" style="padding: 15px; font-size: 1rem;">9</button>
+            <button data-action="divide" style="padding: 15px; font-size: 1rem;">/</button>
+
+            <button data-action="digit-4" style="padding: 15px; font-size: 1rem;">4</button>
+            <button data-action="digit-5" style="padding: 15px; font-size: 1rem;">5</button>
+            <button data-action="digit-6" style="padding: 15px; font-size: 1rem;">6</button>
+            <button data-action="multiply" style="padding: 15px; font-size: 1rem;">*</button>
+
+            <button data-action="digit-1" style="padding: 15px; font-size: 1rem;">1</button>
+            <button data-action="digit-2" style="padding: 15px; font-size: 1rem;">2</button>
+            <button data-action="digit-3" style="padding: 15px; font-size: 1rem;">3</button>
+            <button data-action="subtract" style="padding: 15px; font-size: 1rem;">-</button>
+
+            <button data-action="clear" style="padding: 15px; font-size: 1rem;">C</button>
+            <button data-action="digit-0" style="padding: 15px; font-size: 1rem;">0</button>
+            <button data-action="backspace" style="padding: 15px; font-size: 1rem;">←</button>
+            <button data-action="add" style="padding: 15px; font-size: 1rem;">+</button>
+
+            <button data-action="equals" style="grid-column: span 4; padding: 15px; font-size: 1rem;">=</button>
+        </div>
+    </div>
+    <script src="src/app.js"></script>
+</body>
+</html>
